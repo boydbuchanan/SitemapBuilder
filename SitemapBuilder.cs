@@ -12,46 +12,76 @@ namespace Binn.Sitemap
 {
     public abstract class SitemapBuilder
     {
-        protected string SitemapsFolderPath;
-        protected string IndexFolderPath;
-        protected string SitemapWebsitePath;
-        protected string SitemapName;
+        private readonly bool _indented;
 
-        protected string SiteRoot;
+        protected string RootUrl { get; set; }
 
-        protected void Initialize()
+        /// <summary>
+        /// Windows folderpath to the working directory to build sitemaps.
+        /// </summary>
+        protected string SitemapsFolderPath { get; set; }
+
+        /// <summary>
+        /// The name of the directory where the sitemaps will be built.
+        /// </summary>
+        protected string SitemapsFolderName { get; set; }
+
+        /// <summary>
+        /// The parent directory of the sitemaps directory.
+        /// </summary>
+        protected string IndexFolderPath { get; set; }
+
+        /// <summary>
+        /// The name to give the sitemap.
+        /// </summary>
+        protected string SitemapName { get; set; }
+
+        /// <summary>
+        /// Instantiates a new sitemap builder.
+        /// </summary>
+        /// <param name="rootUrl">The hostname of the site hosting the sitemaps.</param>
+        /// <param name="filename">The name to give the sitemaps files.</param>
+        /// <param name="indented">Indicates if the xml should be indented for readability.</param>
+        protected SitemapBuilder(string rootUrl, string filename = null, bool indented = false)
+        {
+            _indented = indented;
+            RootUrl = rootUrl;
+            SitemapName = !string.IsNullOrEmpty(filename) ? filename : "sitemap";
+            Init();
+        }
+
+        protected void Init()
         {
             // Get teh main directory the site is running under.
             IndexFolderPath = HostingEnvironment.MapPath("~");
             // This will be empty if running tests
-            if (!string.IsNullOrEmpty(IndexFolderPath))
+            if (string.IsNullOrEmpty(IndexFolderPath))
             {
                 // Get directory of executing assembly
-                GetMainDirectory();
+                IndexFolderPath = GetMainDirectory();
             }
 
-            SitemapsFolderPath = IndexFolderPath.TrimWith('\\') + "sitemaps\\";
-            SitemapName = "sitemap";
+            SitemapsFolderPath = IndexFolderPath.TrimWith('\\') + SitemapsFolderName.TrimWith('\\');
+
+            Initialize();
         }
 
-
-
-        public async Task<bool> Build(string rootUrl, string filename =null, bool indented = false)
+        protected virtual void Initialize()
         {
-            if (!string.IsNullOrEmpty(filename))
-            {
-                SitemapName = filename;
-            }
+        }
+
+        public async Task<bool> Build()
+        {
 
             // clear existing .xml files
             DeleteExistingFiles(SitemapsFolderPath, SitemapName + "*");
 
-            using (var sitemap = new SitemapWriter(SitemapsFolderPath, SitemapName, indented))
+            using (var sitemap = new SitemapWriter(SitemapsFolderPath, SitemapName, _indented))
             {
                 await WriteItems(sitemap);
 
                 var files = sitemap.SitemapFiles;
-                CreateSitemapIndex(rootUrl, SitemapName, files);
+                CreateSitemapIndex(files);
             }
             
             //remove compressed files now that they can be rebuilt
@@ -71,7 +101,7 @@ namespace Binn.Sitemap
         /// </summary>
         protected abstract Task WriteItems(SitemapWriter sitemap);
 
-        private void GetMainDirectory()
+        protected virtual string GetMainDirectory()
         {
             // get path of assembly
             // convert path from uri
@@ -83,38 +113,48 @@ namespace Binn.Sitemap
             DirectoryInfo di = new DirectoryInfo(path).Parent;
 
             // set full folder path
-            IndexFolderPath = di.FullName;
+            return di.FullName;
         }
 
         /// <summary>
         /// Creates a sitemap index file for each file specified
         /// </summary>
-        public void CreateSitemapIndex(string rootUrl, string name, IEnumerable<string> files)
+        public void CreateSitemapIndex(IEnumerable<string> files)
         {
             // create main sitemap file
-            string siteMapPath = string.Format("{0}{1}{2}", SitemapsFolderPath, name.Replace(" ", "") + "Sitemap", SitemapWriter.SitemapFileExtension);
-            Stream fs = new FileStream(siteMapPath, FileMode.Create);
-
-            using (XmlTextWriter writer = new XmlTextWriter(fs, Encoding.UTF8))
+            using (Stream fs = OpenSitemapIndexFile())
             {
-                writer.WriteStartDocument();
-                writer.WriteStartElement("sitemapindex");
-                writer.WriteAttributeString("xmlns", "http://www.sitemaps.org/schemas/sitemap/0.9");
-
-                // create a link to each compressed sitemap file
-                foreach (string file in files)
+                using (XmlTextWriter writer = new XmlTextWriter(fs, Encoding.UTF8))
                 {
-                    writer.WriteStartElement("sitemap");
-                    writer.WriteElementString("loc", rootUrl.TrimWith('/') + "/sitemaps/" + file + SitemapWriter.SitemapFileExtension + ".gz");
-                    writer.WriteElementString("lastmod", DateTime.Now.ToString());
-                    writer.WriteEndElement();
-                }
+                    writer.WriteStartDocument();
+                    writer.WriteStartElement("sitemapindex");
+                    writer.WriteAttributeString("xmlns", "http://www.sitemaps.org/schemas/sitemap/0.9");
 
-                writer.WriteEndElement();
-                writer.WriteEndDocument();
-                writer.Flush();
+                    // create a link to each compressed sitemap file
+                    foreach (string file in files)
+                    {
+                        writer.WriteStartElement("sitemap");
+                        writer.WriteElementString("loc",
+                            RootUrl.TrimWith('/') + SitemapsFolderName.TrimWith('/') + file +
+                            SitemapWriter.SitemapFileExtension + ".gz");
+                        writer.WriteElementString("lastmod", DateTime.Now.ToString());
+                        writer.WriteEndElement();
+                    }
+
+                    writer.WriteEndElement();
+                    writer.WriteEndDocument();
+                    writer.Flush();
+                }
+                fs.Close();
             }
-            fs.Close();
+        }
+
+        private Stream OpenSitemapIndexFile()
+        {
+            string siteMapPath = string.Format("{0}{1}{2}", SitemapsFolderPath, SitemapName.Replace(" ", ""),
+                SitemapWriter.SitemapFileExtension);
+            Stream fs = new FileStream(siteMapPath, FileMode.Create);
+            return fs;
         }
 
         /// <summary>
@@ -122,31 +162,33 @@ namespace Binn.Sitemap
         /// </summary>
         public void CreateSitemapIndex()
         {
-            Stream fs = new FileStream(string.Format("{0}{1}{2}", SitemapsFolderPath, "Sitemap", SitemapWriter.SitemapFileExtension), FileMode.Create);
-
-            using (XmlTextWriter writer = new XmlTextWriter(fs, Encoding.UTF8))
+            using (Stream fs = OpenSitemapIndexFile())
             {
-                writer.WriteStartDocument();
-                writer.WriteStartElement("urlset");
-                writer.WriteAttributeString("xmlns", "http://www.sitemaps.org/schemas/sitemap/0.9");
-
-                DirectoryInfo directorySelected = new DirectoryInfo(SitemapsFolderPath);
-                foreach (FileInfo file in directorySelected.GetFiles())
+                using (XmlTextWriter writer = new XmlTextWriter(fs, Encoding.UTF8))
                 {
-                    if ((File.GetAttributes(file.FullName) & FileAttributes.Hidden) != FileAttributes.Hidden & file.Extension == ".gz")
-                    {
-                        writer.WriteStartElement("url");
-                        writer.WriteElementString("loc", SitemapWebsitePath + "/" + file.Name);
-                        writer.WriteElementString("lastmod", file.LastWriteTime.ToString());
-                        writer.WriteEndElement();
-                    }
-                }
+                    writer.WriteStartDocument();
+                    writer.WriteStartElement("urlset");
+                    writer.WriteAttributeString("xmlns", "http://www.sitemaps.org/schemas/sitemap/0.9");
 
-                writer.WriteEndElement();
-                writer.WriteEndDocument();
-                writer.Flush();
+                    DirectoryInfo directorySelected = new DirectoryInfo(SitemapsFolderPath);
+                    foreach (FileInfo file in directorySelected.GetFiles())
+                    {
+                        if ((File.GetAttributes(file.FullName) & FileAttributes.Hidden) != FileAttributes.Hidden &
+                            file.Extension == ".gz")
+                        {
+                            writer.WriteStartElement("url");
+                            writer.WriteElementString("loc", RootUrl.TrimWith('/') + "sitemaps/" + file.Name);
+                            writer.WriteElementString("lastmod", file.LastWriteTime.ToString());
+                            writer.WriteEndElement();
+                        }
+                    }
+
+                    writer.WriteEndElement();
+                    writer.WriteEndDocument();
+                    writer.Flush();
+                }
+                fs.Close();
             }
-            fs.Close();
         }
 
         /// <summary>
