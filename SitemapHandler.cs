@@ -3,7 +3,7 @@ using System.IO;
 using System.Web;
 using System.Web.Hosting;
 
-namespace Binn.Sitemap
+namespace BI.Sitemap
 {
     public class SitemapHandler : IHttpHandler
     {

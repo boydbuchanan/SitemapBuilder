@@ -2,13 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web.Hosting;
 using System.Xml;
+using Binn.Sitemap;
 
-namespace Binn.Sitemap
+namespace BI.Sitemap
 {
     public abstract class SitemapBuilder
     {
