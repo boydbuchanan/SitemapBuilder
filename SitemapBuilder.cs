@@ -6,11 +6,10 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Web.Hosting;
 using System.Xml;
-using Binn.Sitemap;
 
-namespace BI.Sitemap
+namespace Sitemap
 {
-    public abstract class SitemapBuilder
+    public class SitemapBuilder
     {
         private readonly bool _indented;
 
@@ -24,7 +23,7 @@ namespace BI.Sitemap
         /// <summary>
         /// The name of the directory where the sitemaps will be built.
         /// </summary>
-        protected string SitemapsFolderName { get; set; }
+        protected string SitemapsFolderName = "sitemaps";
 
         /// <summary>
         /// The parent directory of the sitemaps directory.
@@ -34,7 +33,12 @@ namespace BI.Sitemap
         /// <summary>
         /// The name to give the sitemap.
         /// </summary>
-        protected string SitemapName { get; set; }
+        public string SitemapName { get; set; }
+
+        /// <summary>
+        /// Compresses sitemap files to *.gz
+        /// </summary>
+        public bool GZipSitemap { get; set; }
 
         /// <summary>
         /// Instantiates a new sitemap builder.
@@ -42,17 +46,22 @@ namespace BI.Sitemap
         /// <param name="rootUrl">The hostname of the site hosting the sitemaps.</param>
         /// <param name="filename">The name to give the sitemaps files.</param>
         /// <param name="indented">Indicates if the xml should be indented for readability.</param>
-        protected SitemapBuilder(string rootUrl, string filename = null, bool indented = false)
+        public SitemapBuilder(string rootUrl, string filename = null, bool indented = false, bool compressed = false)
         {
             _indented = indented;
+            GZipSitemap = compressed;
             RootUrl = rootUrl;
             SitemapName = !string.IsNullOrEmpty(filename) ? filename : "sitemap";
             Init();
         }
 
+        public SitemapBuilder(string scheme, string hostName, string filename = null, bool indented = false, bool compressed = false) 
+            : this(new UriBuilder(scheme, hostName).ToString(), filename, indented, compressed)
+        { }
+
         protected void Init()
         {
-            // Get teh main directory the site is running under.
+            // Get the main directory the site is running under.
             IndexFolderPath = HostingEnvironment.MapPath("~");
             // This will be empty if running tests
             if (string.IsNullOrEmpty(IndexFolderPath))
@@ -62,15 +71,10 @@ namespace BI.Sitemap
             }
 
             SitemapsFolderPath = IndexFolderPath.TrimWith('\\') + SitemapsFolderName.TrimWith('\\');
-
-            Initialize();
         }
 
-        protected virtual void Initialize()
-        {
-        }
 
-        public async Task<bool> Build()
+        public void Build(IEnumerable<Location> locations)
         {
 
             // clear existing .xml files
@@ -78,28 +82,16 @@ namespace BI.Sitemap
 
             using (var sitemap = new SitemapWriter(SitemapsFolderPath, SitemapName, _indented))
             {
-                await WriteItems(sitemap);
+                foreach (Location item in locations)
+                {
+                    sitemap.AddLocationToSitemap(item);
+                }
 
                 var files = sitemap.SitemapFiles;
                 CreateSitemapIndex(files);
             }
-            
-            //remove compressed files now that they can be rebuilt
-            //DeleteExistingFiles(SitemapsFolderPath, "*.gz");
-
-            //compress all files in sitemap folder to gz
-            CompressFiles();
-
-            //DeleteExistingFiles(IndexFolderPath);
-            //CopyFromStagingToMain();
-
-            return true;
         }
 
-        /// <summary>
-        /// Get all items and iterate through them generating urls and appending to the sitemap.
-        /// </summary>
-        protected abstract Task WriteItems(SitemapWriter sitemap);
 
         protected virtual string GetMainDirectory()
         {
@@ -121,6 +113,12 @@ namespace BI.Sitemap
         /// </summary>
         public void CreateSitemapIndex(IEnumerable<string> files)
         {
+            //compress all files in sitemap folder to gz
+            if (GZipSitemap)
+            {
+                CompressFiles();
+            }
+
             // create main sitemap file
             using (Stream fs = OpenSitemapIndexFile())
             {
@@ -133,10 +131,14 @@ namespace BI.Sitemap
                     // create a link to each compressed sitemap file
                     foreach (string file in files)
                     {
+                        string loc = RootUrl.TrimWith('/') + SitemapsFolderName.TrimWith('/') + file + SitemapWriter.SitemapFileExtension;
+                        if (GZipSitemap)
+                        {
+                            loc += ".gz";
+                        }
+
                         writer.WriteStartElement("sitemap");
-                        writer.WriteElementString("loc",
-                            RootUrl.TrimWith('/') + SitemapsFolderName.TrimWith('/') + file +
-                            SitemapWriter.SitemapFileExtension + ".gz");
+                        writer.WriteElementString("loc", loc);
                         writer.WriteElementString("lastmod", DateTime.Now.ToString());
                         writer.WriteEndElement();
                     }
@@ -234,22 +236,5 @@ namespace BI.Sitemap
             }
         }
 
-        public void CopyFromStagingToMain()
-        {
-            DirectoryInfo directorySelected = new DirectoryInfo(SitemapsFolderPath);
-            foreach (FileInfo fileToCopy in directorySelected.GetFiles())
-            {
-                if ((File.GetAttributes(fileToCopy.FullName) & FileAttributes.Hidden) != FileAttributes.Hidden & fileToCopy.Extension == ".gz")
-                {
-                    File.Copy(fileToCopy.FullName, IndexFolderPath + fileToCopy.Name, true);
-                }
-                // don't copy regular xml files
-                // they'll stay in the /sitemaps/ folder and can be accessed there if necessary
-                //else if ((File.GetAttributes(fileToCopy.FullName) & FileAttributes.Hidden) != FileAttributes.Hidden & fileToCopy.Name.ToLower().Contains("sitemap.xml"))
-                //{
-                //    File.Copy(fileToCopy.FullName, SiteRoot + fileToCopy.Name, true);
-                //}
-            }
-        }
     }
 }
