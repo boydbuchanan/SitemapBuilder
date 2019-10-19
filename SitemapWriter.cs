@@ -4,9 +4,9 @@ using System.IO;
 using System.Text;
 using System.Xml;
 
-namespace BI.Sitemap
+namespace Sitemap
 {
-    public class SitemapWriter : IDisposable
+    public partial class SitemapWriter : IDisposable
     {
         public const string SitemapFileExtension = ".xml";
         private readonly string _folderPath;
@@ -29,7 +29,7 @@ namespace BI.Sitemap
         {
             _folderPath = folderPath;
             _fileName = fileName;
-            
+
             BeginFile(indented);
 
         }
@@ -83,7 +83,7 @@ namespace BI.Sitemap
             if (location.ChangeFrequency.HasValue)
                 writer.WriteElementString("changefreq", location.ChangeFrequency.ToString());
 
-            if(location.Priority.HasValue)
+            if (location.Priority.HasValue)
                 writer.WriteElementString("priority", location.Priority.ToString());
 
             writer.WriteEndElement();
@@ -92,25 +92,6 @@ namespace BI.Sitemap
         public void Dispose()
         {
             EndFile();
-        }
-
-        public class Location
-        {
-            public enum eChangeFrequency
-            {
-                always,
-                hourly,
-                daily,
-                weekly,
-                monthly,
-                yearly,
-                never
-            }
-
-            public string Url { get; set; }
-            public eChangeFrequency? ChangeFrequency { get; set; }
-            public DateTime? LastModified { get; set; }
-            public double? Priority { get; set; }
         }
     }
 }
