@@ -1,4 +1,4 @@
-namespace Binn.Sitemap
+namespace Sitemap
 {
     internal static class Extensions
     {
