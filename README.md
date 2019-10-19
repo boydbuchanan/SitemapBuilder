@@ -19,7 +19,7 @@ SitemapWriter keeps track of the filesize of the sitemap being generated, when i
 it saves and closes the file and opens a new file. This keeps the size of the index from becoming
 too large to be indexed by crawlers.
 
-#SitemapHandler
+# SitemapHandler
 ~~~~
 <configuration>
   <system.webServer>
