@@ -1,34 +1,41 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Web;
 using System.Web.Hosting;
 
-namespace BI.Sitemap
+namespace Sitemap
 {
     public class SitemapHandler : IHttpHandler
     {
         public void ProcessRequest(HttpContext context)
         {
             // update to give custom name
-            string siteapFilePath = string.Format("{0}{1}{2}", HostingEnvironment.MapPath("~"), "\\sitemaps\\sitemap", ".xml");
+            string siteName = "sitemap";
 
-            if (File.Exists(siteapFilePath))
+            string rootDirectory = HostingEnvironment.MapPath("~");
+            string folderPath = "\\sitemaps\\";
+            string ext = "xml";
+            string siteMapFilePath = $"{rootDirectory}{folderPath}{siteName}.{ext}";
+
+            if (File.Exists(siteMapFilePath))
             {
                 context.Response.ContentType = "application/xml";
 
-                foreach (var line in File.ReadLines(siteapFilePath))
+                foreach (var line in File.ReadLines(siteMapFilePath))
                 {
                     context.Response.Write(line);
                     context.Response.Write(Environment.NewLine);
                 }
-                
+
             }
             else
             {
-                string sitemapUrl = context.Request.Url.Host + "/sitemaps/sitemap.xml";
+                string sitemapUrl = context.Request.Url.Host + $"/sitemaps/{siteName}.{ext}";
                 context.Response.Redirect(sitemapUrl);
             }
-            
+
         }
 
         /// <summary>
