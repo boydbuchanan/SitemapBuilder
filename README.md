@@ -9,6 +9,16 @@ SitemapWriter keeps track of the filesize of the sitemap being generated, when i
 it saves and closes the file and opens a new file. This keeps the size of the index from becoming
 too large to be indexed by crawlers.
 
+#SitemapHandler
+
+<configuration>
+  <system.webServer>
+    <handlers>
+      <add name="Sitemap" path="sitemap.xml" verb="GET" type="Sitemap.SitemapHandler, Sitemap" />
+    </handlers>
+  </system.webServer>
+</configuration>
+
 # Resources
 
 https://support.google.com/webmasters/answer/75712?visit_id=1-636123203431029869-4222802395&rd=1
