@@ -249,7 +249,7 @@ Add the following patch config to wire up the publish events.
   <sitecore>
     <settings>
       <!-- The item field to check that the item is to be included in teh sitemap -->
-      <setting name="GEHAWEB.Sitemap.IncludeInSitemapFieldName" value="Show in Site Map" />
+      <setting name="Project.Sitemap.IncludeInSitemapFieldName" value="Show in Site Map" />
     </settings>
     <events>
       <event name="publish:end">
