@@ -253,10 +253,10 @@ Add the following patch config to wire up the publish events.
     </settings>
     <events>
       <event name="publish:end">
-        <handler type="GEHAWEB.Sitemap.Events.OnPublish, GEHAWEB.Sitemap" method="PublishEnd"/>
+        <handler type="Project.Sitemap.Events.OnPublish, Project.Sitemap" method="PublishEnd"/>
       </event>
       <event name="publish:end:remote">
-        <handler type="GEHAWEB.Sitemap.Events.OnPublish, GEHAWEB.Sitemap" method="PublishEndRemote"/>
+        <handler type="Project.Sitemap.Events.OnPublish, Project.Sitemap" method="PublishEndRemote"/>
       </event>
     </events>
   </sitecore>
